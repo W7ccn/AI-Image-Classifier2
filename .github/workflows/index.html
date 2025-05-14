@@ -1,59 +1,150 @@
-<div>Teachable Machine Image Model</div>
-<button type="button" onclick="init()">Start</button>
-<div id="webcam-container"></div>
-<div id="label-container"></div>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-<script type="text/javascript">
-    // More API functions here:
-    // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>تصنيف الصور باستخدام نموذج Teachable Machine</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.8.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.6/dist/teachablemachine-image.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f7f7f7;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      direction: rtl;
+    }
+    .container {
+      background: #fff;
+      padding: 30px 40px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      border-radius: 12px;
+      text-align: center;
+      width: 350px;
+    }
+    h1 {
+      font-weight: bold;
+      margin-bottom: 25px;
+      font-size: 22px;
+    }
+    input[type="file"] {
+      margin-bottom: 20px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      width: 100%;
+      box-sizing: border-box;
+      cursor: pointer;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      font-size: 18px;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      width: 100%;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #loadingMessage {
+      margin-top: 15px;
+      font-weight: bold;
+      color: #cc0000;
+      font-size: 16px;
+      display: none;
+    }
+    #result {
+      margin-top: 20px;
+      font-weight: bold;
+      font-size: 18px;
+      color: #333;
+      min-height: 30px;
+    }
+    img#preview {
+      max-width: 100%;
+      max-height: 250px;
+      margin-bottom: 15px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><b>Teachable Machine</b> تصنيف الصور باستخدام نموذج</h1>
+    <input type="file" id="imageInput" accept="image/*" />
+    <br />
+    <img id="preview" alt="معاينة الصورة" />
+    <button id="classifyBtn">تصنيف الصورة</button>
+    <div id="loadingMessage">...جاري تحميل النموذج</div>
+    <div id="result"></div>
+  </div>
 
-    // the link to your model provided by Teachable Machine export panel
+  <script>
     const URL = "https://teachablemachine.withgoogle.com/models/a3qUEVswB/";
+    let model, maxPredictions;
 
-    let model, webcam, labelContainer, maxPredictions;
+    const imageInput = document.getElementById("imageInput");
+    const classifyBtn = document.getElementById("classifyBtn");
+    const loadingMessage = document.getElementById("loadingMessage");
+    const resultDiv = document.getElementById("result");
+    const previewImg = document.getElementById("preview");
 
-    // Load the image model and setup the webcam
-    async function init() {
-        const modelURL = URL + "model.json";
-        const metadataURL = URL + "metadata.json";
-
-        // load the model and metadata
-        // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
-        // or files from your local hard drive
-        // Note: the pose library adds "tmImage" object to your window (window.tmImage)
-        model = await tmImage.load(modelURL, metadataURL);
-        maxPredictions = model.getTotalClasses();
-
-        // Convenience function to setup a webcam
-        const flip = true; // whether to flip the webcam
-        webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
-        await webcam.setup(); // request access to the webcam
-        await webcam.play();
-        window.requestAnimationFrame(loop);
-
-        // append elements to the DOM
-        document.getElementById("webcam-container").appendChild(webcam.canvas);
-        labelContainer = document.getElementById("label-container");
-        for (let i = 0; i < maxPredictions; i++) { // and class labels
-            labelContainer.appendChild(document.createElement("div"));
-        }
+    // تحميل النموذج
+    async function loadModel() {
+      loadingMessage.style.display = "block";
+      model = await tmImage.load(URL + "model.json", URL + "metadata.json");
+      maxPredictions = model.getTotalClasses();
+      loadingMessage.style.display = "none";
     }
 
-    async function loop() {
-        webcam.update(); // update the webcam frame
-        await predict();
-        window.requestAnimationFrame(loop);
-    }
+    loadModel();
 
-    // run the webcam image through the image model
-    async function predict() {
-        // predict can take in an image, video or canvas html element
-        const prediction = await model.predict(webcam.canvas);
-        for (let i = 0; i < maxPredictions; i++) {
-            const classPrediction =
-                prediction[i].className + ": " + prediction[i].probability.toFixed(2);
-            labelContainer.childNodes[i].innerHTML = classPrediction;
-        }
-    }
-</script>
+    // عرض الصورة المختارة
+    imageInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) {
+        previewImg.src = "";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        previewImg.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+      resultDiv.innerHTML = "";
+    });
+
+    // تصنيف الصورة عند الضغط على الزر
+    classifyBtn.addEventListener("click", async () => {
+      if (!imageInput.files.length) {
+        alert("الرجاء اختيار صورة أولاً");
+        return;
+      }
+      loadingMessage.style.display = "block";
+      resultDiv.innerHTML = "";
+
+      const img = new Image();
+      img.src = previewImg.src;
+      img.onload = async () => {
+        const prediction = await model.predict(img);
+        loadingMessage.style.display = "none";
+
+        // ترتيب النتائج حسب الاحتمالية تنازليًا
+        prediction.sort((a, b) => b.probability - a.probability);
+
+        // عرض أفضل نتيجة مع النسبة المئوية
+        const best = prediction[0];
+        const confidencePercent = (best.probability * 100).toFixed(2);
+        resultDiv.innerHTML = `التصنيف: <b>${best.className}</b> بنسبة <b>${confidencePercent}%</b>`;
+      };
+    });
+  </script>
+</body>
+</html>
